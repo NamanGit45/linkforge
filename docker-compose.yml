@@ -1,35 +1,29 @@
-# docker-compose.yml
-# This file defines our local infrastructure stack.
-# It is NOT for running the app itself yet — just Postgres + Redis.
-# Think of it as your "local cloud" for development.
-
 version: "3.9"
 
 services:
-
   postgres:
-    image: postgres:15-alpine          # alpine = smaller image, same postgres
+    image: postgres:15-alpine
     container_name: linkforge_postgres
-    restart: unless-stopped            # auto-restart if it crashes, but not on manual stop
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: linkforge         # DB superuser for our app
-      POSTGRES_PASSWORD: linkforge123  # fine for local dev, never do this in prod
-      POSTGRES_DB: linkforge_db        # the database name our app connects to
+      POSTGRES_USER: linkforge
+      POSTGRES_PASSWORD: linkforge123
+      POSTGRES_DB: linkforge_db
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"                    # host:container — exposes postgres to your machine
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data  # persist data across container restarts
+      - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
     container_name: linkforge_redis
     restart: unless-stopped
     ports:
-      - "6379:6379"                    # default redis port
+      - "6379:6379"
     volumes:
-      - redis_data:/data               # persist cache across restarts (optional but good habit)
+      - redis_data:/data
 
-# named volumes — docker manages where on disk these actually live
 volumes:
   postgres_data:
   redis_data:
