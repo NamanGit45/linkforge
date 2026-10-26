@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-
+from app.api.v1 import auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -42,8 +42,7 @@ app.add_middleware(
         "http://localhost:5173",  
         "http://localhost:8080",  
     ],
-    # allow_credentials=True means cookies and auth headers are included.
-    # Required for JWT in Authorization header to work cross-origin.
+
     allow_credentials=True,
     allow_methods=["*"],  # GET, POST, PUT, DELETE, OPTIONS, etc.
     allow_headers=["*"],  # Authorization, Content-Type, etc.
@@ -51,9 +50,7 @@ app.add_middleware(
 
 
 # ── ROUTES ─────
-# Health check
-# WHY: load balancers, Docker health checks, and monitoring tools
-# ping /health to know if the app is alive.
+
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {
@@ -73,3 +70,4 @@ async def root():
         "health": "/health",
     }
 
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
