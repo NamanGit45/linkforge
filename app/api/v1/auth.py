@@ -1,15 +1,9 @@
-# app/api/v1/auth.py
-
-# This file handles HTTP only:
-# - Parse incoming request
-# - Call service layer
-# - Return response
-# No business logic lives here.
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from fastapi.security import OAuth2PasswordRequestForm
+from app.api.deps import get_current_user
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.auth import TokenResponse, LoginRequest, RefreshRequest
 from app.schemas.user import UserCreate, UserResponse
 from app.services import user_service
@@ -29,20 +23,39 @@ async def register(
     user_data: UserCreate,  # Pydantic validates request body
     db: AsyncSession = Depends(get_db),  # DB session injected automatically
 ):
- 
+
     user = await user_service.register_user(db, user_data)
     return user
 
 
+# @router.post("/login", response_model=TokenResponse)
+# async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
+
+#     # Verify credentials — raises 401 if invalid
+#     user = await user_service.authenticate_user(
+#         db, login_data.email, login_data.password
+#     )
+
+#     # Create both tokens with user's ID as the subject
+#     access_token = create_access_token(subject=str(user.id))
+#     refresh_token = create_refresh_token(subject=str(user.id))
+
+# return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
 @router.post("/login", response_model=TokenResponse)
-async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
-
-    # Verify credentials — raises 401 if invalid
+async def login(
+    # OAuth2PasswordRequestForm reads form data automatically
+    # fields are: form_data.username and form_data.password
+    # WHY username and not email?
+    # OAuth2 spec uses "username" as the field name.
+    # We treat it as email internally.
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db),
+):
     user = await user_service.authenticate_user(
-        db, login_data.email, login_data.password
+        db, form_data.username, form_data.password
     )
-
-    # Create both tokens with user's ID as the subject
     access_token = create_access_token(subject=str(user.id))
     refresh_token = create_refresh_token(subject=str(user.id))
 
@@ -86,9 +99,10 @@ async def refresh_token(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(db: AsyncSession = Depends(get_db)):
-
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Wire up get_current_user dependency first",
-    )
+async def get_me(current_user: User = Depends(get_current_user)):
+    """
+    Returns the currently authenticated user's profile.
+    No DB call needed here — get_current_user already loaded the user.
+    We just return what was injected.
+    """
+    return current_user
