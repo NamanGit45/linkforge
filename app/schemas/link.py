@@ -33,3 +33,11 @@ class LinkResponse(BaseModel):
         return f"{settings.BASE_URL}/r/{self.short_code}"
 
     model_config = {"from_attributes": True}
+
+
+class LinkUpdate(BaseModel):
+    """All fields optional: PATCH changes only what's sent."""
+
+    original_url: HttpUrl | None = None
+    title: str | None = Field(default=None, max_length=255)
+    is_active: bool | None = None

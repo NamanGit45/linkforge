@@ -8,8 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.link import Link
-from app.models.user import User
-from app.schemas.link import LinkCreate
+from app.models.user import User,UserRole
+from app.schemas.link import LinkCreate, LinkUpdate
 
 # 62 characters: a-z, A-Z, 0-9
 ALPHABET = string.ascii_letters + string.digits
@@ -52,10 +52,55 @@ async def create_link(db: AsyncSession, owner: User, data: LinkCreate) -> Link:
 
 
 async def get_user_links(db: AsyncSession, owner_id: uuid.UUID) -> list[Link]:
-    
+
     result = await db.execute(
         select(Link)
         .where(Link.owner_id == owner_id)
         .order_by(Link.created_at.desc())  # newest first
     )
     return list(result.scalars().all())
+
+
+async def get_link_for_user(db: AsyncSession, link_id: uuid.UUID, user: User) -> Link:
+    """
+    The single authorization gate for single-link operations.
+    Every route (get/update/delete) goes through this, so the ownership
+    rule exists in ONE place. If it were copy-pasted into three routes,
+    one would eventually be forgotten, and that's a security hole.
+    """
+    result = await db.execute(select(Link).where(Link.id == link_id))
+    link = result.scalar_one_or_none()
+
+    # Same 404 for "doesn't exist" and "not yours" (no information leak)
+    if link is None or (link.owner_id != user.id and user.role != UserRole.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Link not found"
+        )
+    return link
+
+
+async def update_link(db: AsyncSession, link: Link, data: LinkUpdate) -> Link:
+    changes = data.model_dump(exclude_unset=True)
+
+    # These columns are NOT NULL; an explicit null from the client means "ignore"
+    if changes.get("original_url") is None:
+        changes.pop("original_url", None)
+    else:
+        changes["original_url"] = str(changes["original_url"])
+    if changes.get("is_active") is None:
+        changes.pop("is_active", None)
+
+    for field, value in changes.items():
+        setattr(link, field, value)
+
+    await db.commit()
+    # refresh is required: we set expire_on_commit=False, so without it
+    # updated_at would still show the old value in the response.
+    await db.refresh(link)
+    return link
+
+
+async def delete_link(db: AsyncSession, link: Link) -> None:
+    await db.delete(link)
+    await db.commit()
+    # Clicks are removed by the DB itself via ON DELETE CASCADE.
