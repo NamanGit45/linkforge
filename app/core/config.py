@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
 
+    # Used to build full short URLs in API responses.
+    BASE_URL: str = "http://localhost:8000"
+
     # JWT
     SECRET_KEY: str
     ALGORITHM: str = "HS256"

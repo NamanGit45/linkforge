@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.v1 import auth
+from app.api.v1 import auth,links
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -71,3 +71,4 @@ async def root():
     }
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(links.router, prefix="/api/v1/links", tags=["Links"])
