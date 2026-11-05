@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 
 from app.db.base import Base
+from app.models.user import User
 
 
 class Link(Base):
@@ -45,8 +46,7 @@ class Link(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True, 
+        nullable=False
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -57,6 +57,10 @@ class Link(Base):
     updated_at: Mapped[datetime] = mapped_column(
         nullable=True, 
         onupdate=func.now()
+    )
+    
+    __table_args__ = (
+        Index("ix_links_owner_id_created_at", "owner_id", "created_at"),
     )
 
     owner: Mapped["User"] = relationship("User", lazy="selectin")

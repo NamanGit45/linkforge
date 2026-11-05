@@ -3,7 +3,7 @@ import string
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,14 +51,33 @@ async def create_link(db: AsyncSession, owner: User, data: LinkCreate) -> Link:
     )
 
 
-async def get_user_links(db: AsyncSession, owner_id: uuid.UUID) -> list[Link]:
+async def get_user_links(
+    db: AsyncSession, owner_id: uuid.UUID, limit: int, offset: int
+) -> tuple[list[Link], int]:
+    # Total count for the client (runs the same WHERE, but returns one number)
+    total = await db.scalar(
+        select(func.count()).select_from(Link).where(Link.owner_id == owner_id)
+    )
 
     result = await db.execute(
         select(Link)
         .where(Link.owner_id == owner_id)
-        .order_by(Link.created_at.desc())  # newest first
+        # id is the tie-breaker so ordering is stable between pages
+        .order_by(Link.created_at.desc(), Link.id)
+        .limit(limit)
+        .offset(offset)
     )
-    return list(result.scalars().all())
+    return list(result.scalars().all()), total or 0
+
+
+# async def get_user_links(db: AsyncSession, owner_id: uuid.UUID) -> list[Link]:
+
+#     result = await db.execute(
+#         select(Link)
+#         .where(Link.owner_id == owner_id)
+#         .order_by(Link.created_at.desc())  # newest first
+#     )
+#     return list(result.scalars().all())
 
 
 async def get_link_for_user(db: AsyncSession, link_id: uuid.UUID, user: User) -> Link:

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 from app.api.deps import get_current_user
@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.link import LinkCreate, LinkResponse, LinkUpdate
 from app.services import link_service
+from app.schemas.pagination import Page
 
 router = APIRouter()
 
@@ -21,12 +22,25 @@ async def create_link(
     return await link_service.create_link(db, current_user, data)
 
 
-@router.get("", response_model=list[LinkResponse])
+@router.get("", response_model=Page[LinkResponse])
 async def list_my_links(
+    # Query() validates BEFORE the function runs:
+    # limit=0 or limit=5000 returns 422 automatically
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await link_service.get_user_links(db, current_user.id)
+    items, total = await link_service.get_user_links(db, current_user.id, limit, offset)
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
+
+
+# @router.get("", response_model=list[LinkResponse])
+# async def list_my_links(
+#     current_user: User = Depends(get_current_user),
+#     db: AsyncSession = Depends(get_db),
+# ):
+#     return await link_service.get_user_links(db, current_user.id)
 
 
 @router.get("/{link_id}", response_model=LinkResponse)
