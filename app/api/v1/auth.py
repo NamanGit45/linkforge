@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import OAuth2PasswordRequestForm
+
+from app.core.exceptions import UnauthorizedError
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
@@ -67,10 +69,7 @@ async def refresh_token(
     refresh_data: RefreshRequest, db: AsyncSession = Depends(get_db)
 ):
 
-    credentials_error = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired refresh token",
-    )
+    credentials_error = UnauthorizedError("Invalid or expired refresh token")
 
     try:
         payload = decode_token(refresh_data.refresh_token)

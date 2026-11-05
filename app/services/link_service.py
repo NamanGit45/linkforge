@@ -2,7 +2,8 @@ import secrets
 import string
 import uuid
 
-from fastapi import HTTPException, status
+# from fastapi import HTTPException, status
+from app.core.exceptions import InternalError, NotFoundError
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,18 +24,13 @@ def generate_short_code(length: int = CODE_LENGTH) -> str:
 
 
 async def create_link(db: AsyncSession, owner: User, data: LinkCreate) -> Link:
-    """
-    Insert first, handle collisions after.
-    We do NOT check "does this code exist?" before inserting, because
-    two simultaneous requests could both pass that check (race condition).
-    The UNIQUE index on short_code is the real guarantee.
-    """
+    owner_id = owner.id  # read once: rollback() expires the object
     for _ in range(MAX_RETRIES):
         link = Link(
             short_code=generate_short_code(),
-            original_url=str(data.original_url),  # Url object -> plain string
+            original_url=str(data.original_url),
             title=data.title,
-            owner_id=owner.id,  # comes from the verified JWT user, NEVER from the client
+            owner_id=owner_id,
         )
         db.add(link)
         try:
@@ -42,13 +38,9 @@ async def create_link(db: AsyncSession, owner: User, data: LinkCreate) -> Link:
             await db.refresh(link)
             return link
         except IntegrityError:
-            # Code collision: undo this failed transaction and retry with a new code
             await db.rollback()
 
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Could not generate a unique short code, please try again",
-    )
+    raise InternalError("Could not generate a unique short code, please try again")
 
 
 async def get_user_links(
@@ -92,9 +84,7 @@ async def get_link_for_user(db: AsyncSession, link_id: uuid.UUID, user: User) ->
 
     # Same 404 for "doesn't exist" and "not yours" (no information leak)
     if link is None or (link.owner_id != user.id and user.role != UserRole.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Link not found"
-        )
+        raise NotFoundError("Link not found")
     return link
 
 

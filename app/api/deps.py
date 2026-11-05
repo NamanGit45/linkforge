@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError
 
+from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.db.session import get_db
 from app.core.security import decode_token
 from app.models.user import User, UserRole
@@ -21,11 +22,7 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),  # injects DB session
 ) -> User:
 
-    credentials_error = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    credentials_error = UnauthorizedError("Could not validate credentials")
 
     try:
         # Step 1: decode and verify signature + expiry
@@ -51,10 +48,7 @@ async def get_current_user(
 
     # Step 5: verify account is still active
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated",
-        )
+        raise ForbiddenError("Account is deactivated")
 
     return user  # injected into the route function as current_user
 
@@ -72,8 +66,5 @@ async def get_current_admin(
         async def admin_route(admin: User = Depends(get_current_admin)):
     """
     if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
+        raise ForbiddenError("Admin access required")
     return current_user
