@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1 import auth,links
 from app.core.error_handlers import register_exception_handlers
+from app.cache.redis_client import redis_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,12 +14,19 @@ async def lifespan(app: FastAPI):
     print(f"   {settings.APP_NAME} starting up...")
     print(f"   Environment: {settings.APP_ENV}")
     print(f"   Docs available at: http://localhost:8000/docs")
+    try:
+        # Test Redis connection
+        await redis_client.ping()
+        print("   Redis connection successful.")
+    except Exception as e:
+        print(f"   Redis connection failed: {e}, running without cache")
 
     yield  # ← app is live and serving requests here
 
     # ── SHUTDOWN ─────────────────────────────────────────
     # This runs when Ctrl+C or the container stops.
     # Close DB pools, flush caches, finish in-flight tasks.
+    await redis_client.aclose()
     print(f"🛑 {settings.APP_NAME} shutting down...")
 
 

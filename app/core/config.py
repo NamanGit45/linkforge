@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # Redis
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_URL: str = "redis://127.0.0.1:6379"
 
     # Used to build full short URLs in API responses.
     BASE_URL: str = "http://localhost:8000"
