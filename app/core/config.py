@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = "redis://127.0.0.1:6379"
+    LINK_CACHE_TTL_SECONDS: int = 3600 # 1 hr
 
     # Used to build full short URLs in API responses.
     BASE_URL: str = "http://localhost:8000"
