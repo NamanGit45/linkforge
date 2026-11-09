@@ -125,3 +125,18 @@ async def delete_link(db: AsyncSession, link: Link) -> None:
     await db.delete(link)
     await db.commit()
     # Clicks are removed by the DB itself via ON DELETE CASCADE.
+
+
+async def get_redirect_url(db: AsyncSession, short_code: str) -> str | None:
+    """
+    Hot path: runs on every cache miss. Returns only the destination URL.
+    Inactive links are treated as not found.
+    Uses the unique index ix_links_short_code.
+    """
+    result = await db.execute(
+        select(Link.original_url).where(
+            Link.short_code == short_code,
+            Link.is_active.is_(True),
+        )
+    )
+    return result.scalar_one_or_none()

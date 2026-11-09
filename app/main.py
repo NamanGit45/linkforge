@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.v1 import auth,links
+from app.api.v1 import auth,links, redirect
 from app.core.error_handlers import register_exception_handlers
 from app.cache.redis_client import redis_client
 
@@ -81,3 +81,4 @@ async def root():
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(links.router, prefix="/api/v1/links", tags=["Links"])
+app.include_router(redirect.router, prefix="/r", tags=["Redirect"])
