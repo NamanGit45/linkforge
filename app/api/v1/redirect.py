@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.get("/{short_code}")
 async def redirect_to_original(short_code: str, db: AsyncSession = Depends(get_db)):
-    url = await link_service.resolve_short_code(db, short_code)
-    if url is None:
+    target = await link_service.resolve_short_code(db, short_code)
+    if target is None:
         raise NotFoundError("Link not found")
-    return RedirectResponse(url=url, status_code=302)
+    return RedirectResponse(url=target["url"], status_code=302)
