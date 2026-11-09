@@ -99,7 +99,6 @@ async def get_link_for_user(db: AsyncSession, link_id: uuid.UUID, user: User) ->
         raise NotFoundError("Link not found")
     return link
 
-
 async def update_link(db: AsyncSession, link: Link, data: LinkUpdate) -> Link:
     changes = data.model_dump(exclude_unset=True)
 
@@ -118,13 +117,41 @@ async def update_link(db: AsyncSession, link: Link, data: LinkUpdate) -> Link:
     # refresh is required: we set expire_on_commit=False, so without it
     # updated_at would still show the old value in the response.
     await db.refresh(link)
+    await link_cache.delete_url(link.short_code)  # NEW: drop the stale copy
     return link
+
+# async def update_link(db: AsyncSession, link: Link, data: LinkUpdate) -> Link:
+#     changes = data.model_dump(exclude_unset=True)
+
+#     # These columns are NOT NULL; an explicit null from the client means "ignore"
+#     if changes.get("original_url") is None:
+#         changes.pop("original_url", None)
+#     else:
+#         changes["original_url"] = str(changes["original_url"])
+#     if changes.get("is_active") is None:
+#         changes.pop("is_active", None)
+
+#     for field, value in changes.items():
+#         setattr(link, field, value)
+
+#     await db.commit()
+#     # refresh is required: we set expire_on_commit=False, so without it
+#     # updated_at would still show the old value in the response.
+#     await db.refresh(link)
+#     return link
 
 
 async def delete_link(db: AsyncSession, link: Link) -> None:
+    short_code = link.short_code  # read it BEFORE the row is deleted
     await db.delete(link)
     await db.commit()
-    # Clicks are removed by the DB itself via ON DELETE CASCADE.
+    await link_cache.delete_url(short_code)  # NEW
+
+
+# async def delete_link(db: AsyncSession, link: Link) -> None:
+#     await db.delete(link)
+#     await db.commit()
+#     # Clicks are removed by the DB itself via ON DELETE CASCADE.
 
 
 async def get_redirect_url(db: AsyncSession, short_code: str) -> str | None:
