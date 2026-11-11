@@ -19,15 +19,15 @@ CODE_LENGTH = 7
 MAX_RETRIES = 5
 
 
-async def resolve_short_code(db: AsyncSession, short_code: str) -> str | None:
-    cached = await link_cache.get_url(short_code)
+async def resolve_short_code(db: AsyncSession, short_code: str) -> dict | None:
+    cached = await link_cache.get_link(short_code)
     if cached is not None:
         return cached  # HIT: Postgres never touched
 
-    url = await get_redirect_url(db, short_code)  # MISS: ask Postgres
-    if url is not None:
-        await link_cache.set_url(short_code, url)  # remember it for next time
-    return url
+    target = await get_redirect_target(db, short_code)  # MISS: ask Postgres
+    if target is not None:
+        await link_cache.set_link(short_code, target["id"], target["url"])
+    return target
 
 
 def generate_short_code(length: int = CODE_LENGTH) -> str:
