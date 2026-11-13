@@ -6,8 +6,8 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.link import LinkCreate, LinkResponse, LinkUpdate
 from app.services import link_service, analytics_service
-from app.schemas.pagination import Page
-from app.schemas.analytics import LinkStats
+from app.schemas.pagination import Page, CursorPage
+from app.schemas.analytics import LinkStats, ClickResponse
 
 
 router = APIRouter()
@@ -85,3 +85,15 @@ async def get_link_stats(
     # have to write: another ownership check.
     link = await link_service.get_link_for_user(db, link_id, current_user)
     return await analytics_service.get_link_stats(db, link)
+
+
+@router.get("/{link_id}/clicks", response_model=CursorPage[ClickResponse])
+async def get_click_history(
+    link_id: uuid.UUID,
+    limit: int = Query(20, ge=1, le=100),
+    cursor: str | None = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await link_service.get_link_for_user(db, link_id, current_user)
+    return await analytics_service.get_click_history(db, link, limit, cursor)

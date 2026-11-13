@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date , datetime
 from pydantic import BaseModel
 
 
@@ -19,3 +19,11 @@ class LinkStats(BaseModel):
     clicks_last_7_days: int
     daily: list[DailyClicks]
     top_referrers: list[ReferrerCount]
+
+
+class ClickResponse(BaseModel):
+    id: uuid.UUID
+    clicked_at: datetime
+    ip_address: str | None
+    referer: str | None
+    user_agent: str | None

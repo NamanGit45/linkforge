@@ -1,4 +1,3 @@
-
 class AppException(Exception):
     """Base class for every error we raise on purpose."""
 
@@ -41,3 +40,9 @@ class ForbiddenError(AppException):
 class InternalError(AppException):
     status_code = 500
     code = "internal_error"
+
+
+class BadRequestError(AppException):
+    status_code = 400
+    code = "bad_request"
+    message = "Bad request"

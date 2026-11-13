@@ -4,7 +4,8 @@ from datetime import timedelta
 from app.db.session import AsyncSessionLocal
 from app.models.click import Click
 from app.models.link import Link
-from sqlalchemy import Date, cast, func, select
+from app.core.cursor import decode_cursor, encode_cursor
+from sqlalchemy import Date, cast, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger("linkforge.analytics")
@@ -74,4 +75,52 @@ async def get_link_stats(db: AsyncSession, link: Link) -> dict:
         "top_referrers": [
             {"referer": r.referer, "clicks": r.clicks} for r in referrer_rows
         ],
+    }
+
+
+async def get_click_history(
+    db: AsyncSession, link: Link, limit: int, cursor: str | None
+) -> dict:
+    conditions = [Click.link_id == link.id]
+    if cursor:
+        clicked_at, click_id = decode_cursor(cursor)
+        # "strictly after the cursor row", comparing the pair as one unit
+        conditions.append(
+            tuple_(Click.clicked_at, Click.id) < tuple_(clicked_at, click_id)
+        )
+
+    rows = (
+        await db.execute(
+            select(
+                Click.id,
+                Click.clicked_at,
+                Click.ip_address,
+                Click.referer,
+                Click.user_agent,
+            )
+            .where(*conditions)
+            .order_by(
+                Click.clicked_at.desc(), Click.id.desc()
+            )  # newest first, id breaks ties
+            .limit(limit + 1)  # one extra row: see below
+        )
+    ).all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]  # drop the extra row
+    next_cursor = encode_cursor(rows[-1].clicked_at, rows[-1].id) if has_more else None
+
+    return {
+        "items": [
+            {
+                "id": r.id,
+                "clicked_at": r.clicked_at,
+                "ip_address": str(r.ip_address) if r.ip_address is not None else None,
+                "referer": r.referer,
+                "user_agent": r.user_agent,
+            }
+            for r in rows
+        ],
+        "next_cursor": next_cursor,
+        "limit": limit,
     }
