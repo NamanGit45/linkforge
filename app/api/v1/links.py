@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, rate_limit_by_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.link import LinkCreate, LinkResponse, LinkUpdate
@@ -13,7 +13,12 @@ from app.schemas.analytics import LinkStats, ClickResponse
 router = APIRouter()
 
 
-@router.post("", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", 
+    response_model=LinkResponse, 
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_by_user("create_link", 20, 60))],
+    )
 async def create_link(
     data: LinkCreate,
     current_user: User = Depends(

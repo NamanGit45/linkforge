@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.exceptions import UnauthorizedError
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, rate_limit_by_ip
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import TokenResponse, LoginRequest, RefreshRequest
@@ -20,6 +20,7 @@ router = APIRouter()
     "/register",
     response_model=UserResponse,  # Pydantic filters response through this schema
     status_code=status.HTTP_201_CREATED,  # 201 = Created (not 200 = OK)
+    dependencies=[Depends(rate_limit_by_ip("register", 5, 3600))],
 )
 async def register(
     user_data: UserCreate,  # Pydantic validates request body
@@ -45,7 +46,11 @@ async def register(
 # return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    dependencies=[Depends(rate_limit_by_ip("login", 5, 60))],
+)
 async def login(
     # OAuth2PasswordRequestForm reads form data automatically
     # fields are: form_data.username and form_data.password

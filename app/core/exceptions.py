@@ -6,8 +6,13 @@ class AppException(Exception):
     message: str = "Something went wrong"  # default human-readable text
     headers: dict[str, str] | None = None
 
-    def __init__(self, message: str | None = None):
+    # def __init__(self, message: str | None = None):
+    #     self.message = message or self.message
+    #     super().__init__(self.message)
+    def __init__(self, message: str | None = None, headers: dict[str, str] | None = None):
         self.message = message or self.message
+        if headers is not None:
+            self.headers = headers       # an instance value overrides the class default
         super().__init__(self.message)
 
 
@@ -46,3 +51,9 @@ class BadRequestError(AppException):
     status_code = 400
     code = "bad_request"
     message = "Bad request"
+
+
+class TooManyRequestsError(AppException):
+    status_code = 429
+    code = "rate_limited"
+    message = "Too many requests. Please slow down and try again later."

@@ -1,9 +1,10 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError
 
-from app.core.exceptions import ForbiddenError, UnauthorizedError
+from app.core import rate_limit
+from app.core.exceptions import ForbiddenError, UnauthorizedError, TooManyRequestsError
 from app.db.session import get_db
 from app.core.security import decode_token
 from app.models.user import User, UserRole
@@ -68,3 +69,39 @@ async def get_current_admin(
     if current_user.role != UserRole.ADMIN:
         raise ForbiddenError("Admin access required")
     return current_user
+
+
+async def _check(
+    scope: str, identifier: str, limit: int, window: int, response: Response
+) -> None:
+    allowed, remaining, reset_in = await rate_limit.hit(
+        f"rl:{scope}:{identifier}", limit, window
+    )
+    headers = {
+        "X-RateLimit-Limit": str(limit),
+        "X-RateLimit-Remaining": str(remaining),
+        "X-RateLimit-Reset": str(reset_in),  # seconds until the window resets
+    }
+    if not allowed:
+        headers["Retry-After"] = str(reset_in)
+        raise TooManyRequestsError(headers=headers)
+    for name, value in headers.items():  # attach to the normal success response
+        response.headers[name] = value
+
+
+def rate_limit_by_ip(scope: str, limit: int, window: int):
+    """Returns a dependency. Usage: Depends(rate_limit_by_ip('login', 5, 60))"""
+
+    async def dependency(request: Request, response: Response) -> None:
+        await _check(scope, rate_limit.client_ip(request), limit, window, response)
+
+    return dependency
+
+
+def rate_limit_by_user(scope: str, limit: int, window: int):
+    async def dependency(
+        response: Response, user: User = Depends(get_current_user)
+    ) -> None:
+        await _check(scope, str(user.id), limit, window, response)
+
+    return dependency
