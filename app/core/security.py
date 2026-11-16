@@ -32,17 +32,27 @@ def create_access_token(subject: str | Any) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(subject: str | Any) -> str:
-
+def create_refresh_token(subject: str, jti: str) -> tuple[str, datetime]:
+    """Returns the token AND its expiry, because the DB row needs the same expiry."""
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
-    payload = {
-        "sub": str(subject),
-        "exp": expire,
-        "type": "refresh",
-    }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    payload = {"sub": str(subject), "exp": expire, "type": "refresh", "jti": jti}
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return token, expire
+
+
+# def create_refresh_token(subject: str | Any) -> str:
+
+#     expire = datetime.now(timezone.utc) + timedelta(
+#         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+#     )
+#     payload = {
+#         "sub": str(subject),
+#         "exp": expire,
+#         "type": "refresh",
+#     }
+#     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_token(token: str) -> dict:
