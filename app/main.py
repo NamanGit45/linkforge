@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.api.v1 import auth,links, redirect
 from app.core.error_handlers import register_exception_handlers
 from app.cache.redis_client import redis_client
+from app.core.middleware import register_middleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,18 +46,24 @@ register_exception_handlers(app)
 # ── MIDDLEWARE ───────
 app.add_middleware(
     CORSMiddleware,
-
     allow_origins=[
-        "http://localhost:3000",  
-        "http://localhost:5173",  
-        "http://localhost:8080",  
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8080",
     ],
-
     allow_credentials=True,
     allow_methods=["*"],  # GET, POST, PUT, DELETE, OPTIONS, etc.
     allow_headers=["*"],  # Authorization, Content-Type, etc.
+    expose_headers=[
+        "X-Request-ID",
+        "X-Process-Time-Ms",
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+        "Retry-After",
+    ],
 )
-
+register_middleware(app)
 
 # ── ROUTES ─────
 
